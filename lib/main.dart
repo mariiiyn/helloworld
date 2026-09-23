@@ -1,301 +1,237 @@
 import 'package:flutter/material.dart';
 
+import 'tarefa.dart';
+import 'database_helper.dart';
+
 void main() {
-  runApp(const MeuTreinoApp());
+  runApp(const MeuAplicativo());
 }
 
-class MeuTreinoApp extends StatelessWidget {
-  const MeuTreinoApp({super.key});
+class MeuAplicativo extends StatelessWidget {
+  const MeuAplicativo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "Gym App",
-      theme: ThemeData.dark(),
-      home: const TelaPrincipal(),
+      title: 'Tarefas',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const TarefasPage(),
     );
   }
 }
 
-class TelaPrincipal extends StatefulWidget {
-  const TelaPrincipal({super.key});
+class TarefasPage extends StatefulWidget {
+  const TarefasPage({super.key});
 
   @override
-  State<TelaPrincipal> createState() => _TelaPrincipalState();
+  State<TarefasPage> createState() => _TarefasPageState();
 }
 
-class _TelaPrincipalState extends State<TelaPrincipal> {
-  int paginaAtual = 0;
-  String diaSelecionado = "Segunda";
+class _TarefasPageState extends State<TarefasPage> {
+  final DatabaseHelper dbHelper = DatabaseHelper();
 
-  Map<String, List<Map<String, dynamic>>> treinos = {
-    "Segunda": [
-      {"nome": "Supino Reto", "serie": "4x10", "feito": false},
-      {"nome": "Crucifixo", "serie": "3x12", "feito": false},
-      {"nome": "Tríceps Polia", "serie": "3x15", "feito": false},
-    ],
-    "Terça": [
-      {"nome": "Agachamento", "serie": "4x10", "feito": false},
-      {"nome": "Leg Press", "serie": "4x12", "feito": false},
-      {"nome": "Panturrilha", "serie": "4x20", "feito": false},
-    ],
-    "Quarta": [
-      {"nome": "Puxada Frontal", "serie": "4x10", "feito": false},
-      {"nome": "Remada Baixa", "serie": "4x12", "feito": false},
-      {"nome": "Rosca Direta", "serie": "3x12", "feito": false},
-    ],
-    "Quinta": [
-      {"nome": "Desenvolvimento", "serie": "4x10", "feito": false},
-      {"nome": "Elevação Lateral", "serie": "3x12", "feito": false},
-      {"nome": "Encolhimento", "serie": "3x15", "feito": false},
-    ],
-    "Sexta": [
-      {"nome": "Levantamento Terra", "serie": "4x8", "feito": false},
-      {"nome": "Abdominal", "serie": "3x20", "feito": false},
-      {"nome": "Prancha", "serie": "3x40s", "feito": false},
-    ],
-  };
+  final TextEditingController descricaoController = TextEditingController();
+
+  String prioridadeSelecionada = 'Média';
+
+  List<Tarefa> tarefas = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    carregarTarefas();
+  }
+
+  // READ
+  Future<void> carregarTarefas() async {
+    final resultado = await dbHelper.listarTarefas();
+
+    setState(() {
+      tarefas = resultado;
+    });
+  }
+
+  // CREATE
+  Future<void> adicionarTarefa() async {
+    final descricao = descricaoController.text.trim();
+
+    if (descricao.isEmpty) {
+      return;
+    }
+
+    final tarefa = Tarefa(
+      descricao: descricao,
+      prioridade: prioridadeSelecionada,
+      status: 'Pendente',
+    );
+
+    await dbHelper.inserirTarefa(tarefa);
+
+    descricaoController.clear();
+
+    setState(() {
+      prioridadeSelecionada = 'Média';
+    });
+
+    await carregarTarefas();
+  }
+
+  // UPDATE
+  Future<void> concluirTarefa(Tarefa tarefa) async {
+    final tarefaAtualizada = Tarefa(
+      id: tarefa.id,
+      descricao: tarefa.descricao,
+      prioridade: tarefa.prioridade,
+      status: 'Concluída',
+    );
+
+    await dbHelper.atualizarTarefa(tarefaAtualizada);
+
+    await carregarTarefas();
+  }
+
+  // DELETE
+  Future<void> excluirTarefa(int id) async {
+    await dbHelper.excluirTarefa(id);
+
+    await carregarTarefas();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Gym App"),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text("Escolha o dia"),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: ["Segunda","Terça","Quarta","Quinta","Sexta"]
-                        .map(
-                          (dia) => ListTile(
-                            title: Text(dia),
-                            onTap: () {
-                              setState(() {
-                                diaSelecionado = dia;
-                              });
-                              Navigator.pop(context);
-                            },
-                          ),
-                        )
-                        .toList(),
+      appBar: AppBar(title: const Text('Minhas Tarefas')),
+
+      body: Column(
+        children: [
+          // FORMULÁRIO
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextField(
+                  controller: descricaoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Descrição da tarefa',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-        ),
-              body: paginaAtual == 0
-          ? telaInicio()
-          : paginaAtual == 1
-              ? telaTreino()
-              : telaPerfil(),
 
-      floatingActionButton: paginaAtual == 1
-          ? FloatingActionButton(
-              child: const Icon(Icons.add),
-              onPressed: () {
-                TextEditingController nome = TextEditingController();
-                TextEditingController serie = TextEditingController();
+                const SizedBox(height: 12),
 
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: const Text("Adicionar Exercício"),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: nome,
-                            decoration: const InputDecoration(
-                              labelText: "Nome",
-                            ),
-                          ),
-                          TextField(
-                            controller: serie,
-                            decoration: const InputDecoration(
-                              labelText: "Séries",
-                            ),
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("Cancelar"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            if (nome.text.isNotEmpty &&
-                                serie.text.isNotEmpty) {
-                              setState(() {
-                                treinos[diaSelecionado]!.add({
-                                  "nome": nome.text,
-                                  "serie": serie.text,
-                                  "feito": false,
-                                });
-                              });
-                            }
-                            Navigator.pop(context);
-                          },
-                          child: const Text("Adicionar"),
-                        ),
-                      ],
-                    );
+                DropdownButtonFormField<String>(
+                  value: prioridadeSelecionada,
+                  decoration: const InputDecoration(
+                    labelText: 'Prioridade',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Baixa', child: Text('Baixa')),
+                    DropdownMenuItem(value: 'Média', child: Text('Média')),
+                    DropdownMenuItem(value: 'Alta', child: Text('Alta')),
+                  ],
+                  onChanged: (valor) {
+                    if (valor != null) {
+                      setState(() {
+                        prioridadeSelecionada = valor;
+                      });
+                    }
                   },
-                );
-              },
-            )
-          : null,
+                ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: paginaAtual,
-        onTap: (index) {
-          setState(() {
-            paginaAtual = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Início",
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: adicionarTarefa,
+                    child: const Text('ADICIONAR TAREFA'),
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
-            label: "Treino",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Perfil",
+
+          const Divider(),
+
+          // LISTAGEM
+          Expanded(
+            child: tarefas.isEmpty
+                ? const Center(child: Text('Nenhuma tarefa cadastrada.'))
+                : ListView.builder(
+                    itemCount: tarefas.length,
+                    itemBuilder: (context, index) {
+                      final tarefa = tarefas[index];
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+
+                        child: ListTile(
+                          leading: CircleAvatar(child: Text('${tarefa.id}')),
+
+                          title: Text(
+                            tarefa.descricao,
+                            style: TextStyle(
+                              decoration: tarefa.status == 'Concluída'
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+
+                          subtitle: Text(
+                            'Prioridade: ${tarefa.prioridade}\n'
+                            'Status: ${tarefa.status}',
+                          ),
+
+                          isThreeLine: true,
+
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Concluir
+                              if (tarefa.status != 'Concluída')
+                                IconButton(
+                                  icon: const Icon(Icons.check),
+                                  tooltip: 'Concluir',
+                                  onPressed: () {
+                                    concluirTarefa(tarefa);
+                                  },
+                                ),
+
+                              // Excluir
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                tooltip: 'Excluir',
+                                onPressed: () {
+                                  excluirTarefa(tarefa.id!);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
-  Widget telaInicio() {
-  return const Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.fitness_center,
-          size: 80,
-          color: Colors.blue,
-        ),
-        SizedBox(height: 20),
-        Text(
-          "Bem-vindo ao Gym App!",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        SizedBox(height: 10),
-        Text("Escolha um treino para começar."),
-      ],
-    ),
-  );
+
+  @override
+  void dispose() {
+    descricaoController.dispose();
+
+    super.dispose();
+  }
 }
 
-Widget telaTreino() {
-  return Column(
-    children: [
-      const SizedBox(height: 15),
-      Text(
-        "Treino de $diaSelecionado",
-        style: const TextStyle(
-          fontSize: 22,
-          color: Color.fromARGB(255, 143, 0, 195),
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 10),
 
-      Expanded(
-        child: ListView.builder(
-          itemCount: treinos[diaSelecionado]!.length,
-          itemBuilder: (context, index) {
-            return Card(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
-              child: CheckboxListTile(
-                title: Text(
-                  treinos[diaSelecionado]![index]["nome"],
-                ),
-                subtitle: Text(
-                  treinos[diaSelecionado]![index]["serie"],
-                ),
-                value: treinos[diaSelecionado]![index]["feito"],
-                onChanged: (valor) {
-                  setState(() {
-                    treinos[diaSelecionado]![index]["feito"] = valor!;
-                  });
-                },
-              ),
-            );
-          },
-        ),
-      ),
-
-      Padding(
-        padding: const EdgeInsets.all(15),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    "Treino de $diaSelecionado finalizado! 💪",
-                  ),
-                ),
-              );
-            },
-            child: const Text("Finalizar Treino"),
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-Widget telaPerfil() {
-  return const Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircleAvatar(
-          radius: 50,
-          child: Icon(
-            Icons.person,
-            size: 60,
-          ),
-        ),
-        SizedBox(height: 20),
-        Text(
-          "Meu Perfil",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        SizedBox(height: 10),
-        Text("Nome: Mariana"),
-        Text("Objetivo: Hipertrofia"),
-        Text("Treinos concluídos: 0"),
-      ],
-    ),
-  );
-}
-}

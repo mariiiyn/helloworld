@@ -37,7 +37,7 @@ class CartaoBanco extends StatelessWidget {
       height: 220,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Colors.blue[800], // cor principal do cartao
+        color: const Color.fromARGB(255, 192, 21, 164), // cor principal do cartao
         borderRadius: BorderRadius.circular(15), //Bordas arredondadas
         boxShadow: const [
           BoxShadow(
@@ -87,12 +87,12 @@ class CartaoBanco extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'LEONARDO',
+                    'Mariana R Nicolato',
                     style: TextStyle(color: Colors.white, fontSize:16),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Tel: (11) 98765-4321',
+                    'Tel: (19) 991489100',
                     style: TextStyle(color: Colors.white60, fontSize: 12),
                   )
                 ],
